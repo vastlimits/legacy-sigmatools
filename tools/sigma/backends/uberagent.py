@@ -468,7 +468,7 @@ class uberAgentBackend(SingleTextQueryBackend):
             return ""
 
         # We support windows rules and generic rules that don't have a specific product specifier - such as DNS.
-        if product not in ["windows", ""]:
+        if product not in ["windows", "macos", ""]:
             return ""
 
         self.current_category = category
