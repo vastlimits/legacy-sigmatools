@@ -1,6 +1,7 @@
 import json
 import re
 import sigma
+import os
 from sigma.backends.base import SingleTextQueryBackend
 from sigma.parser.condition import SigmaAggregationParser, NodeSubexpression, ConditionAND, ConditionOR, ConditionNOT
 from sigma.parser.exceptions import SigmaParseError
@@ -114,6 +115,7 @@ class ActivityMonitoringRule:
         self.sigma_level = ""
         self.annotation = ""
         self.generic_properties = []
+        self.product = ""
 
     def set_id(self, id):
         """Sets the RuleId property."""
@@ -154,6 +156,13 @@ class ActivityMonitoringRule:
     def set_generic_properties(self, fields):
         """Set the generic properties. """
         self.generic_properties = fields
+    
+    def set_product(self, product):
+        """Set the product property. """
+        if product == "":
+            self.product = "common"
+        else:
+            self.product = product
 
     def _prefixed_tag(self):
         prefixes = {
@@ -489,6 +498,7 @@ class uberAgentBackend(SingleTextQueryBackend):
                 rule.set_description(description)
                 rule.set_annotation(annotation)
                 rule.set_generic_properties(self.recent_fields)
+                rule.set_product(product)
                 self.rules.append(rule)
                 print("Generated rule <{}>.. [level: {}]".format(rule.name, level))
         except IgnoreTypedModifierException:
@@ -499,34 +509,47 @@ class uberAgentBackend(SingleTextQueryBackend):
             return ""
         except MalformedRuleException:
             return ""
-
-    def serialize_file(self, name, level):
-        count = 0
-        with open(name, "w", encoding='utf8') as file:
-            write_file_header(file, level)
-            for rule in self.rules:
+    def serialize_rules(self):
+        count_critical = 0
+        count_high = 0
+        count_medium = 0
+        count_low = 0
+        count_informational = 0
+        
+        for rule in self.rules:
+            file_name = "uberAgent-ESA-am-sigma-" + rule.sigma_level + "-" + rule.product + ".conf"
+            if not os.path.exists(file_name):
+                with open(file_name, "w", encoding='utf8') as file:
+                    write_file_header(file, rule.sigma_level)
+                    file.close()
+                    
+            with open(file_name, "a+", encoding='utf8') as file:       
                 try:
                     serialized_rule = str(rule)
-                    if rule.sigma_level == level:
-                        file.write(serialized_rule + "\n")
-                        count = count + 1
+                    if rule.sigma_level == "critical":
+                        count_critical = count_critical + 1
+                    if rule.sigma_level == "high":
+                        count_high = count_high + 1
+                    if rule.sigma_level == "medium":
+                        count_medium = count_medium + 1
+                    if rule.sigma_level == "low":
+                        count_low = count_low + 1
+                    if rule.sigma_level == "informational":
+                        count_informational = count_informational + 1
+                    file.write(serialized_rule + "\n")
                 except MalformedRuleException:
                     continue
-            file.close()
-        return count
-
-    def finalize(self):
-        count_critical = self.serialize_file("uberAgent-ESA-am-sigma-critical.conf", "critical")
-        count_high = self.serialize_file("uberAgent-ESA-am-sigma-high.conf", "high")
-        count_low = self.serialize_file("uberAgent-ESA-am-sigma-low.conf", "low")
-        count_medium = self.serialize_file("uberAgent-ESA-am-sigma-medium.conf", "medium")
+                file.close()
         print("Generated {} activity monitoring rules..".format(len(self.rules)))
         print(
-            "This includes {} critical rules, {} high rules, {} medium rules and {} low rules..".format(count_critical,
-                                                                                                        count_high,
-                                                                                                        count_medium,
-                                                                                                        count_low))
-
+            "This includes {} critical rules, {} high rules, {} medium rules ,{} low rules and {} informational rules..".format(count_critical, 
+                                                                                                                                count_high, 
+                                                                                                                                count_medium, 
+                                                                                                                                count_low, 
+                                                                                                                                count_informational))
+          
+    def finalize(self):
+        self.serialize_rules()
         print("There are %d unsupported categories." % len(gUnsupportedCategories))
         for category in gUnsupportedCategories:
             print("Category %s has %d unsupported rules." % (category, gUnsupportedCategories[category]))
