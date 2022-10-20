@@ -176,7 +176,14 @@ class ActivityMonitoringRule:
 
     def __str__(self):
         """Builds and returns the [ActivityMonitoringRule] configuration block."""
-        result = "[ActivityMonitoringRule]\n"
+        result = "[ActivityMonitoringRule"
+        if not self.product == "common":
+            result += " platform="
+            if self.product == "windows":
+                result += "Windows"
+            elif self.product == "macos":
+                result += "MacOS"
+        result += "]\n"
 
         # The Description is optional.
         if len(self.description) > 0:
