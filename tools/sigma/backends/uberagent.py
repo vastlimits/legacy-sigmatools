@@ -19,7 +19,8 @@ def convert_sigma_level_to_uberagent_risk_score(level):
         "critical": 100,
         "high": 75,
         "medium": 50,
-        "low": 25
+        "low": 25,
+        "informational": 1
     }
 
     if level in levels:
