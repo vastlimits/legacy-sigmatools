@@ -13,6 +13,7 @@ from ..parser.modifiers.base import SigmaTypeModifier
 gUnsupportedCategories = {}
 gPlatformLevelCombinations = {}
 
+
 def convert_sigma_level_to_uberagent_risk_score(level):
     """Converts the given Sigma rule level to uberAgent ESA RiskScore property."""
     levels = {
@@ -157,7 +158,7 @@ class ActivityMonitoringRule:
     def set_generic_properties(self, fields):
         """Set the generic properties. """
         self.generic_properties = fields
-    
+
     def set_product(self, product):
         """Set the product property. """
         self.product = product
@@ -251,7 +252,7 @@ def get_annotation(tags):
             mitre_annotation_objects.append(mitre_annotation)
 
     if len(mitre_annotation_objects) > 0:
-        return json.dumps({ 'mitre_attack': mitre_annotation_objects })
+        return json.dumps({'mitre_attack': mitre_annotation_objects})
 
     return ""
 
@@ -404,7 +405,7 @@ class uberAgentBackend(SingleTextQueryBackend):
         "registry_rename": {
             "targetobject": "Reg.Key.Target",
             "newname": "Reg.Key.Path.New"
-        } 
+        }
     }
 
     # We ignore some fields that we don't support yet but we don't want them to
@@ -441,7 +442,6 @@ class uberAgentBackend(SingleTextQueryBackend):
         if field not in self.recent_fields:
             self.recent_fields.append(field)
 
-
     def fieldNameMapping(self, fieldname, value):
         key = fieldname.lower()
 
@@ -471,7 +471,8 @@ class uberAgentBackend(SingleTextQueryBackend):
 
     def generate(self, sigmaparser):
         """Method is called for each sigma rule and receives the parsed rule (SigmaParser)"""
-        product, category, service, title, level, condition, description, annotation, id = get_parser_properties(sigmaparser)
+        product, category, service, title, level, condition, description, annotation, id = get_parser_properties(
+            sigmaparser)
 
         # Do not generate a rule if the given category is unsupported by now.
         if not is_sigma_category_supported(category):
@@ -487,7 +488,7 @@ class uberAgentBackend(SingleTextQueryBackend):
 
         if product == "":
             product = "common"
-            
+
         self.current_category = category
 
         try:
@@ -518,25 +519,26 @@ class uberAgentBackend(SingleTextQueryBackend):
             return ""
         except MalformedRuleException:
             return ""
+
     def serialize_rules(self):
         result_dict = {
-                       "common critical"       : 0,
-                       "common high"           : 0,
-                       "common medium"         : 0,
-                       "common low"            : 0,
-                       "common informational"  : 0,
-                       "windows critical"      : 0,
-                       "windows high"          : 0,
-                       "windows medium"        : 0,
-                       "windows low"           : 0,
-                       "windows informational" : 0,
-                       "macos critical"        : 0,
-                       "macos high"            : 0,
-                       "macos medium"          : 0,
-                       "macos low"             : 0,
-                       "macos informational"   : 0
-                      }
-        
+            "common critical": 0,
+            "common high": 0,
+            "common medium": 0,
+            "common low": 0,
+            "common informational": 0,
+            "windows critical": 0,
+            "windows high": 0,
+            "windows medium": 0,
+            "windows low": 0,
+            "windows informational": 0,
+            "macos critical": 0,
+            "macos high": 0,
+            "macos medium": 0,
+            "macos low": 0,
+            "macos informational": 0
+        }
+
         file_name_front = "uberAgent-ESA-am-sigma-"
         file_extension = ".conf"
         for key, value in gPlatformLevelCombinations.items():
@@ -547,50 +549,49 @@ class uberAgentBackend(SingleTextQueryBackend):
             except OSError as error:
                 print("There was an error deleting previously created files:" + error)
                 print("Please remove them manually or try again.")
-       
-        
+
         for rule in self.rules:
             file_name = file_name_front + rule.sigma_level + "-" + rule.product + file_extension
             if not os.path.exists(file_name):
                 with open(file_name, "w", encoding='utf8') as file:
                     write_file_header(file, rule.sigma_level)
                     file.close()
-                    
-            with open(file_name, "a+", encoding='utf8') as file:       
+
+            with open(file_name, "a", encoding='utf8') as file:
                 try:
                     serialized_rule = str(rule)
                     file.write(serialized_rule + "\n")
                 except MalformedRuleException:
                     continue
                 file.close()
-                key = rule.product +  " " + rule.sigma_level
+                key = rule.product + " " + rule.sigma_level
                 result_dict[key] += 1
-                
+
         print("Generated {} activity monitoring rules..".format(len(self.rules)))
         print("This includes..")
-        
+
         report_string = "{} for Windows, {} for macOS, {} platform independent."
-        
+
         print(("Critical severity: " + report_string).format(result_dict["windows critical"],
                                                              result_dict["macos critical"],
                                                              result_dict["common critical"]))
-                                                             
+
         print(("High severity:     " + report_string).format(result_dict["windows high"],
                                                              result_dict["macos high"],
                                                              result_dict["common high"]))
-                                                         
+
         print(("Medium severity:   " + report_string).format(result_dict["windows medium"],
                                                              result_dict["macos medium"],
                                                              result_dict["common medium"]))
-                                                           
+
         print(("Low severity:      " + report_string).format(result_dict["windows low"],
                                                              result_dict["macos low"],
                                                              result_dict["common low"]))
-                                                             
+
         print(("Informational:     " + report_string).format(result_dict["windows informational"],
                                                              result_dict["macos informational"],
                                                              result_dict["common informational"]))
-          
+
     def finalize(self):
         self.serialize_rules()
         print("There are %d unsupported categories." % len(gUnsupportedCategories))
