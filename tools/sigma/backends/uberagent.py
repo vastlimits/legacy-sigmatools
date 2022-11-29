@@ -14,6 +14,34 @@ gUnsupportedCategories = {}
 gPlatformLevelCombinations = {}
 
 
+class Versioning:
+    def __init__(self, version):
+        self._outputVersion = version
+
+    def is_version_6_1_0_or_newer(self):
+        return self.is_version_develop() or self.version() >= self._version_tuple("6.1.0")
+
+    def is_version_7_0_0_or_newer(self):
+        return self.is_version_develop() or self._version() >= self._version_tuple("7.0.0")
+
+    def is_version_develop(self):
+        return self._outputVersion == "develop"
+
+    def _version(self):
+        return self._version_tuple(self._outputVersion)
+
+    # Builds a version tuple which works fine as long as we specify the version in Major.Minor.Build.
+    # A more efficient and robust way to solve this is using packaging.version but since we dont want to add
+    # more dependencies to sigmac were using this method.
+    # Because we specify versions in the same format, this is going to be fine.
+    @staticmethod
+    def _version_tuple(v):
+        return tuple(map(int, (v.split("."))))
+
+
+gVersion: Versioning = None
+
+
 def convert_sigma_level_to_uberagent_risk_score(level):
     """Converts the given Sigma rule level to uberAgent ESA RiskScore property."""
     levels = {
@@ -202,14 +230,23 @@ class ActivityMonitoringRule:
 
     def __str__(self):
         """Builds and returns the [ActivityMonitoringRule] configuration block."""
-        result = "[ActivityMonitoringRule"
-        if not self.platform == "common":
-            result += " platform="
-            if self.platform == "windows":
-                result += "Windows"
-            elif self.platform == "macos":
-                result += "MacOS"
-        result += "]\n"
+
+        global gVersion
+
+        # The default is available since uberAgent 6.
+        result = "[ActivityMonitoringRule]\n"
+
+        # Starting with uberAgent 7 and newer we slightly change the configuration stanza.
+        # Example. [ActivityMonitoringRule platform=Windows] or [ActivityMonitoringRule platform=MacOS]
+        if gVersion.is_version_7_0_0_or_newer():
+            result = "[ActivityMonitoringRule"
+            if self.platform in ["windows", "macos"]:
+                result += " platform="
+                if self.platform == "windows":
+                    result += "Windows"
+                elif self.platform == "macos":
+                    result += "MacOS"
+            result += "]\n"
 
         # The Description is optional.
         if len(self.description) > 0:
@@ -229,7 +266,9 @@ class ActivityMonitoringRule:
         if len(self.query) == 0:
             raise MalformedRuleException()
 
-        result += "RuleId = {}\n".format(self.id)
+        if gVersion.is_version_7_0_0_or_newer():
+            result += "RuleId = {}\n".format(self.id)
+
         result += "RuleName = {}\n".format(self.name)
         result += "EventType = {}\n".format(self.event_type)
         result += "Tag = {}\n".format(self._prefixed_tag())
@@ -239,27 +278,30 @@ class ActivityMonitoringRule:
         if self.risk_score > 0:
             result += "RiskScore = {}\n".format(self.risk_score)
 
-        if len(self.annotation) > 0:
-            result += "Annotation = {}\n".format(self.annotation)
+        if gVersion.is_version_7_0_0_or_newer():
+            if len(self.annotation) > 0:
+                result += "Annotation = {}\n".format(self.annotation)
 
         result += "Query = {}\n".format(self.query)
 
         if self.event_type == "Reg.Any":
             result += "Hive = HKLM,HKU\n"
 
-        counter = 1
-        for prop in self.generic_properties:
+        # uberAgent supports generic properties to be added to an activity rule since version 6.1
+        if gVersion.is_version_6_1_0_or_newer():
+            counter = 1
+            for prop in self.generic_properties:
 
-            # The following properties are included in all tagging events anyways.
-            # There is no need to send them twice to the backend so we are ignoring them here.
-            if prop in ["Process.Path", "Process.CommandLine", "Process.Name"]:
-                continue
-            # Generic properties are limited to 10.
-            if counter > 10:
-                break
+                # The following properties are included in all tagging events anyways.
+                # There is no need to send them twice to the backend so we are ignoring them here.
+                if prop in ["Process.Path", "Process.CommandLine", "Process.Name"]:
+                    continue
+                # Generic properties are limited to 10.
+                if counter > 10:
+                    break
 
-            result += "GenericProperty{} = {}\n".format(counter, prop)
-            counter += 1
+                result += "GenericProperty{} = {}\n".format(counter, prop)
+                counter += 1
 
         return result
 
@@ -497,8 +539,22 @@ class uberAgentBackend(SingleTextQueryBackend):
         return self.generateNode(parsed.parsedSearch)
 
     def generate(self, sigmaparser):
+
+        # Initialize version class to easily handle multiple output version.
+        # The version is specified in backend configuration.
+        # Example
+        #
+        # version: "develop" (upcoming version for development purposes)
+        # version: "6.0.0"
+        # version: "6.1.0"
+        # version: "7.0.0"
+        #
+        global gVersion
+        if gVersion is None:
+            gVersion = Versioning(self.backend_options["version"])
+
         """Method is called for each sigma rule and receives the parsed rule (SigmaParser)"""
-        product, category, service, title, level, condition, description, annotation, id = get_parser_properties(
+        product, category, service, title, level, condition, description, annotation, rule_id = get_parser_properties(
             sigmaparser)
 
         # Do not generate a rule if the given category is unsupported by now.
@@ -506,7 +562,7 @@ class uberAgentBackend(SingleTextQueryBackend):
             return ""
 
         # Exclude all entries contained in backend configuration exclusion list.
-        if id in self.backend_options["exclusion"]:
+        if rule_id in self.backend_options["exclusion"]:
             return ""
 
         # We support windows rules and generic rules that don't have a specific product specifier - such as DNS.
@@ -524,7 +580,7 @@ class uberAgentBackend(SingleTextQueryBackend):
 
             query = super().generate(sigmaparser)
             if len(query) > 0:
-                rule.set_id(id)
+                rule.set_id(rule_id)
                 rule.set_name(title)
                 rule.set_tag(convert_sigma_name_to_uberagent_tag(title))
                 rule.set_event_type(convert_sigma_category_to_uberagent_event_type(category))
