@@ -131,6 +131,9 @@ class Versioning:
                 "Thread.StartModule",
                 "Thread.StartFunctionName",
                 "Reg.Key.Target"
+            ],
+            "7.0.0": [
+                "Image.IsSignedByOSVendor"
             ]
         }
 
@@ -242,6 +245,19 @@ class Versioning:
     @staticmethod
     def _version_tuple(v):
         return tuple(map(int, (v.split("."))))
+
+    def get_filename(self, rule):
+
+        # File name since develop (upcoming version)
+        if self.is_version_develop():
+            return "uberAgent-ESA-am-sigma-" + rule.sigma_level + "-" + rule.platform + ".conf"
+
+        # File name since 6.2
+        if self.is_version_6_2_0_or_newer():
+            return "uberAgent-ESA-am-sigma-" + rule.sigma_level + ".conf"
+
+        # File name since initial version 6.0
+        return "uberAgent-ESA-am-sigma-proc-creation-" + rule.sigma_level + ".conf"
 
 
 gVersion: Versioning = None
@@ -804,24 +820,27 @@ class uberAgentBackend(SingleTextQueryBackend):
             "macos informational": 0
         }
 
-        file_name_front = "uberAgent-ESA-am-sigma-"
-        file_extension = ".conf"
-        for key, value in gPlatformLevelCombinations.items():
-            file_name = file_name_front + key + file_extension
-            try:
-                if os.path.exists(file_name):
+        # Delete existing configuration files (if any)
+        for rule in self.rules:
+            file_name = gVersion.get_filename(rule)
+            if os.path.exists(file_name):
+                try:
                     os.remove(file_name)
-            except OSError as error:
-                print("There was an error deleting previously created files:" + error)
-                print("Please remove them manually or try again.")
+                except OSError as error:
+                    print("There was an error deleting previously created files:" + error)
+                    print("Please remove them manually or try again.")
+                    exit(1)
 
         for rule in self.rules:
-            file_name = file_name_front + rule.sigma_level + "-" + rule.platform + file_extension
+            file_name = gVersion.get_filename(rule)
+
+            # Initially write the file and its header
             if not os.path.exists(file_name):
                 with open(file_name, "w", encoding='utf8') as file:
                     write_file_header(file, rule.sigma_level)
                     file.close()
 
+            # Append the rule to the given file
             with open(file_name, "a", encoding='utf8') as file:
                 try:
                     serialized_rule = str(rule)
