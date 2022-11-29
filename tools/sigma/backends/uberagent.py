@@ -21,14 +21,209 @@ class Versioning:
     def is_version_6_1_0_or_newer(self):
         return self.is_version_develop() or self.version() >= self._version_tuple("6.1.0")
 
+    def is_version_6_2_0_or_newer(self):
+        return self.is_version_develop() or self.version() >= self._version_tuple("6.2.0")
+
     def is_version_7_0_0_or_newer(self):
         return self.is_version_develop() or self._version() >= self._version_tuple("7.0.0")
 
     def is_version_develop(self):
         return self._outputVersion == "develop"
 
+    def is_sigma_platform_supported(self, platform):
+        platform_per_version = {
+            "6.0.0": ["common", "windows"],
+            "develop": ["common", "windows", "macos"]
+        }
+
+        if platform in platform_per_version:
+            return True
+
+        if self.is_version_develop() and platform in platform_per_version["develop"]:
+            return True
+
+    def is_field_supported(self, field):
+        fields_per_version = {
+            "6.0.0": [
+                "Process.Name",
+                "Parent.Name",
+                "Process.User",
+                "Parent.User",
+                "Process.Path",
+                "Parent.Path",
+                "Process.CommandLine",
+                "Parent.CommandLine",
+                "Process.AppName",
+                "Parent.AppName",
+                "Process.AppVersion",
+                "Parent.AppVersion",
+                "Process.Company",
+                "Parent.Company",
+                "Process.IsElevated",
+                "Parent.IsElevated",
+                "Process.IsProtected",
+                "Parent.IsProtected",
+                "Process.SessionId",
+                "Parent.SessionId",
+                "Process.DirectorySdSddl",
+                "Process.DirectoryUserWritable",
+                "Process.Hash",
+                "Parent.Hash",
+                "Net.Target.Ip",
+                "Net.Target.Name",
+                "Net.Target.Port",
+                "Net.Target.Protocol",
+                "Reg.Key.Path",
+                "Reg.Key.Name",
+                "Reg.Parent.Key.Path",
+                "Reg.Key.Path.New",
+                "Reg.Key.Path.Old",
+                "Reg.Value.Name",
+                "Reg.File.Name",
+                "Reg.Key.Sddl",
+                "Reg.Key.Hive"
+            ],
+            "6.1.0": [
+                "Process.Hash.MD5",
+                "Process.Hash.SHA1",
+                "Process.Hash.SHA256",
+                "Process.Hash.IMP",
+                "Process.IsSigned",
+                "Process.Signature",
+                "Process.SignatureStatus",
+                "Parent.Hash.MD5",
+                "Parent.Hash.SHA1",
+                "Parent.Hash.SHA256",
+                "Parent.Hash.IMP",
+                "Parent.IsSigned",
+                "Parent.Signature",
+                "Parent.SignatureStatus",
+                "Image.Hash.MD5",
+                "Image.Hash.SHA1",
+                "Image.Hash.SHA256",
+                "Image.Hash.IMP",
+                "Image.IsSigned",
+                "Image.Signature",
+                "Image.SignatureStatus"
+            ],
+            "6.2.0": [
+                "Net.Target.IpIsV6",
+                "Net.Target.PortName",
+                "Net.Source.Ip",
+                "Net.Source.IpIsV6",
+                "Net.Source.Name",
+                "Net.Source.Port",
+                "Net.Source.PortName",
+                "Thread.Id",
+                "Thread.Timestamp",
+                "Thread.Process.Id",
+                "Thread.Parent.Id",
+                "Thread.StartAddress",
+                "Thread.StartModule",
+                "Thread.StartFunctionName",
+                "Reg.Key.Target"
+            ]
+        }
+
+        if self.is_version_6_1_0_or_newer():
+            # The fields here were removed in version 6.1.0 and replaced with more specific fields.
+            # Remove them if we are generating for a newer version, so we don't generate invalid rules.
+            fields_per_version["6.0.0"].remove("Process.Hash")
+            fields_per_version["6.0.0"].remove("Parent.Hash")
+            fields_per_version["6.0.0"].remove("Image.Hash")
+
+        if field in fields_per_version["6.0.0"]:
+            return True
+
+        if self.is_version_6_1_0_or_newer() and field in fields_per_version["6.1.0"]:
+            return True
+
+        if self.is_version_6_2_0_or_newer() and field in fields_per_version["6.2.0"]:
+            return True
+
+        return False
+
+    def is_sigma_category_supported(self, category):
+        """Returns whether uberAgent ESA knows the given sigma category or not."""
+        event_type = self.convert_category(category)
+        event_types_per_version = {
+            "6.0.0": [
+                "Process.Start",
+                "Process.Stop",
+                "Image.Load",
+                "Net.Send",
+                "Net.Receive",
+                "Net.Connect",
+                "Net.Reconnect",
+                "Net.Retransmit",
+                "Reg.Key.Create",
+                "Reg.Value.Write",
+                "Reg.Delete",
+                "Reg.Key.Delete",
+                "Reg.Value.Delete",
+                "Reg.Key.SecurityChange",
+                "Reg.Key.Rename",
+                "Reg.Key.SetInformation",
+                "Reg.Key.Load",
+                "Reg.Key.Unload",
+                "Reg.Key.Save",
+                "Reg.Key.Restore",
+                "Reg.Key.Replace",
+                "Reg.Any"
+            ],
+            "6.1.0": [
+                "DNS.Event"
+            ],
+            "6.2.0": [
+                "Process.CreateRemoteThread",
+                "Process.TamperingEvent"
+            ],
+            "develop": []
+        }
+
+        if event_type in event_types_per_version["6.0.0"]:
+            return True
+
+        if self.is_version_6_1_0_or_newer() and event_type in event_types_per_version["6.1.0"]:
+            return True
+
+        if self.is_version_6_2_0_or_newer() and event_type in event_types_per_version["6.2.0"]:
+            return True
+
+        if self.is_version_develop() and event_type in event_types_per_version["develop"]:
+            return True
+
     def _version(self):
         return self._version_tuple(self._outputVersion)
+
+    @staticmethod
+    def convert_category(category):
+
+        # Maps a sigma category to uberAgent's Activity Monitoring Event Type
+        category_map = {
+            "process_creation": "Process.Start",
+            "image_load": "Image.Load",
+            "dns": "Dns.Query",
+            "dns_query": "Dns.Query",
+            "network_connection": "Net.Any",
+            "firewall": "Net.Any",
+            "create_remote_thread": "Process.CreateRemoteThread",
+            "registry_event": "Reg.Any",
+            "registry_add": "Reg.Any",
+            "registry_delete": "Reg.Any",
+            "registry_set": "Reg.Any",
+            "registry_rename": "Reg.Any"
+        }
+
+        if category in category_map:
+            return category_map[category]
+
+        if category in gUnsupportedCategories:
+            gUnsupportedCategories[category] += 1
+        else:
+            gUnsupportedCategories[category] = 1
+
+        return None
 
     # Builds a version tuple which works fine as long as we specify the version in Major.Minor.Build.
     # A more efficient and robust way to solve this is using packaging.version but since we dont want to add
@@ -63,38 +258,6 @@ def convert_sigma_name_to_uberagent_tag(name):
     tag = name.lower().replace(" ", "-")
     tag = re.sub(r"-{2,}", "-", tag, 0, re.IGNORECASE)
     return tag
-
-
-def convert_sigma_category_to_uberagent_event_type(category):
-    categories = {
-        "process_creation": "Process.Start",
-        "image_load": "Image.Load",
-        "dns": "Dns.Query",
-        "dns_query": "Dns.Query",
-        "network_connection": "Net.Any",
-        "firewall": "Net.Any",
-        "create_remote_thread": "Process.CreateRemoteThread",
-        "registry_event": "Reg.Any",
-        "registry_add": "Reg.Any",
-        "registry_delete": "Reg.Any",
-        "registry_set": "Reg.Any",
-        "registry_rename": "Reg.Any"
-    }
-
-    if category in categories:
-        return categories[category]
-
-    if category in gUnsupportedCategories:
-        gUnsupportedCategories[category] += 1
-    else:
-        gUnsupportedCategories[category] = 1
-
-    return None
-
-
-def is_sigma_category_supported(category):
-    """Returns whether uberAgent ESA knows the given category or not."""
-    return convert_sigma_category_to_uberagent_event_type(category) is not None
 
 
 class IgnoreTypedModifierException(Exception):
@@ -179,9 +342,9 @@ class ActivityMonitoringRule:
 
     # RuleId =
     # Available since uberAgent 7.0+
-    def set_id(self, ruleId):
+    def set_id(self, rule_id):
         """Sets the RuleId property."""
-        self.id = ruleId
+        self.id = rule_id
 
     # Annotation =
     # Available since uberAgent 7.0+
@@ -332,7 +495,7 @@ def get_parser_properties(sigmaparser):
     description = sigmaparser.parsedyaml['description']
     condition = sigmaparser.parsedyaml['detection']['condition']
     logsource = sigmaparser.parsedyaml['logsource']
-    id = sigmaparser.parsedyaml['id']
+    rule_id = sigmaparser.parsedyaml['id']
 
     category = ''
     if 'category' in logsource:
@@ -350,7 +513,7 @@ def get_parser_properties(sigmaparser):
     if 'tags' in sigmaparser.parsedyaml:
         annotation = get_annotation(sigmaparser.parsedyaml['tags'])
 
-    return product, category, service, title, level, condition, description, annotation, id
+    return product, category, service, title, level, condition, description, annotation, rule_id
 
 
 def write_file_header(f, level):
@@ -420,16 +583,14 @@ class uberAgentBackend(SingleTextQueryBackend):
         "process_creation": {
             "sha1": "Process.Hash.SHA1",
             "imphash": "Process.Hash.IMP",
-            "childimage": "Process.Path"
-            # Not yet supported.
-            # "signed": "Process.IsSigned"
+            "childimage": "Process.Path",
+            "signed": "Process.IsSigned"
         },
         "image_load": {
             "sha1": "Image.Hash.SHA1",
             "imphash": "Image.Hash.IMP",
-            "childimage": "Image.Path"
-            # Not yet supported.
-            # "signed": "Image.IsSigned"
+            "childimage": "Image.Path",
+            "signed": "Image.IsSigned"
         },
         "dns": {
             "query": "Dns.QueryRequest",
@@ -511,8 +672,8 @@ class uberAgentBackend(SingleTextQueryBackend):
         if field not in self.recent_fields:
             self.recent_fields.append(field)
 
-    def fieldNameMapping(self, fieldname, value):
-        key = fieldname.lower()
+    def fieldNameMapping(self, field_name, value):
+        key = field_name.lower()
 
         if self.current_category is not None:
             if self.current_category in self.fieldMappingPerCategory:
@@ -526,9 +687,18 @@ class uberAgentBackend(SingleTextQueryBackend):
                 raise IgnoreFieldException()
             else:
                 raise NotImplementedError(
-                    'The field name %s in category %s is not implemented.' % (fieldname, self.current_category))
+                    'The field name %s in category %s is not implemented.' % (field_name, self.current_category))
 
         result = self.fieldMapping[key]
+
+        # We have a valid field.
+        # But we must check if this field is supported in the given uberAgent version.
+        global gVersion
+        if not gVersion.is_field_supported(result):
+            raise NotImplementedError('The field name %s in category %s is not implemented in the specified uberAgent '
+                                      'version. Please upgrade to a newer uberAgent version.' % (field_name,
+                                                                                                 self.current_category))
+
         self.trackRecentMappedField(result)
         return result
 
@@ -554,23 +724,24 @@ class uberAgentBackend(SingleTextQueryBackend):
             gVersion = Versioning(self.backend_options["version"])
 
         """Method is called for each sigma rule and receives the parsed rule (SigmaParser)"""
-        product, category, service, title, level, condition, description, annotation, rule_id = get_parser_properties(
+        platform, category, service, title, level, condition, description, annotation, rule_id = get_parser_properties(
             sigmaparser)
-
-        # Do not generate a rule if the given category is unsupported by now.
-        if not is_sigma_category_supported(category):
-            return ""
 
         # Exclude all entries contained in backend configuration exclusion list.
         if rule_id in self.backend_options["exclusion"]:
             return ""
 
-        # We support windows rules and generic rules that don't have a specific product specifier - such as DNS.
-        if product not in ["windows", "macos", ""]:
+        # Empty platform indicates a common rule that does not depend on a specific platform
+        if platform == "":
+            platform = "common"
+
+        # Do not generate a rule if the given category is unsupported
+        if not gVersion.is_sigma_category_supported(category):
             return ""
 
-        if product == "":
-            product = "common"
+        # Do not generate a rule if the given platform is unsupported
+        if not gVersion.is_sigma_platform_supported(platform):
+            return ""
 
         self.current_category = category
 
@@ -583,16 +754,16 @@ class uberAgentBackend(SingleTextQueryBackend):
                 rule.set_id(rule_id)
                 rule.set_name(title)
                 rule.set_tag(convert_sigma_name_to_uberagent_tag(title))
-                rule.set_event_type(convert_sigma_category_to_uberagent_event_type(category))
+                rule.set_event_type(Versioning.convert_category(category))
                 rule.set_query(query)
                 rule.set_risk_score(convert_sigma_level_to_uberagent_risk_score(level))
                 rule.set_sigma_level(level)
                 rule.set_description(description)
                 rule.set_annotation(annotation)
                 rule.set_generic_properties(self.recent_fields)
-                rule.set_platform(product)
+                rule.set_platform(platform)
                 self.rules.append(rule)
-                gPlatformLevelCombinations[level + "-" + product] = 0
+                gPlatformLevelCombinations[level + "-" + platform] = 0
                 print("Generated rule <{}>.. [level: {}]".format(rule.name, level))
         except IgnoreTypedModifierException:
             return ""
@@ -691,26 +862,26 @@ class uberAgentBackend(SingleTextQueryBackend):
         return "(" + (" or ".join([self.mapWildcard % (key, self.generateValueNode(item)) for item in value])) + ")"
 
     def generateMapItemNode(self, node):
-        fieldname, value = node
-        transformed_fieldname = self.fieldNameMapping(fieldname, value)
+        field_name, value = node
+        transformed_field_name = self.fieldNameMapping(field_name, value)
 
         if value is None:
-            return self.nullExpression % (transformed_fieldname,)
+            return self.nullExpression % (transformed_field_name,)
 
         has_wildcard = re.search(r"((\\(\*|\?|\\))|\*|\?|_|%)", self.generateNode(value))
 
         if "," in self.generateNode(value) and not has_wildcard:
-            return self.mapListValueExpression % (transformed_fieldname, self.generateNode(value))
+            return self.mapListValueExpression % (transformed_field_name, self.generateNode(value))
         elif type(value) == list:
-            return self.generateMapItemListNode(transformed_fieldname, value)
-        elif self.mapListsSpecialHandling == False and type(value) in (
-                str, int, list) or self.mapListsSpecialHandling == True and type(value) in (str, int):
+            return self.generateMapItemListNode(transformed_field_name, value)
+        elif self.mapListsSpecialHandling is False and type(value) in (
+                str, int, list) or self.mapListsSpecialHandling is True and type(value) in (str, int):
             if has_wildcard:
-                return self.mapWildcard % (transformed_fieldname, self.generateNode(value))
+                return self.mapWildcard % (transformed_field_name, self.generateNode(value))
             else:
-                return self.mapExpression % (transformed_fieldname, self.generateNode(value))
+                return self.mapExpression % (transformed_field_name, self.generateNode(value))
         elif has_wildcard:
-            return self.mapWildcard % (transformed_fieldname, self.generateNode(value))
+            return self.mapWildcard % (transformed_field_name, self.generateNode(value))
         else:
             raise TypeError("Backend does not support map values of type " + str(type(value)))
 
