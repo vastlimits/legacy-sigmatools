@@ -19,10 +19,10 @@ class Versioning:
         self._outputVersion = version
 
     def is_version_6_1_0_or_newer(self):
-        return self.is_version_develop() or self.version() >= self._version_tuple("6.1.0")
+        return self.is_version_develop() or self._version() >= self._version_tuple("6.1.0")
 
     def is_version_6_2_0_or_newer(self):
-        return self.is_version_develop() or self.version() >= self._version_tuple("6.2.0")
+        return self.is_version_develop() or self._version() >= self._version_tuple("6.2.0")
 
     def is_version_7_0_0_or_newer(self):
         return self.is_version_develop() or self._version() >= self._version_tuple("7.0.0")
@@ -36,7 +36,7 @@ class Versioning:
             "develop": ["common", "windows", "macos"]
         }
 
-        if platform in platform_per_version:
+        if platform in platform_per_version["6.0.0"]:
             return True
 
         if self.is_version_develop() and platform in platform_per_version["develop"]:
@@ -81,7 +81,10 @@ class Versioning:
                 "Reg.Value.Name",
                 "Reg.File.Name",
                 "Reg.Key.Sddl",
-                "Reg.Key.Hive"
+                "Reg.Key.Hive",
+                "Image.Name",
+                "Image.Path",
+                "Image.Hash"
             ],
             "6.1.0": [
                 "Process.Hash.MD5",
@@ -175,6 +178,7 @@ class Versioning:
                 "DNS.Event"
             ],
             "6.2.0": [
+                "Net.Any",
                 "Process.CreateRemoteThread",
                 "Process.TamperingEvent"
             ],
@@ -401,7 +405,7 @@ class ActivityMonitoringRule:
 
         # Starting with uberAgent 7 and newer we slightly change the configuration stanza.
         # Example. [ActivityMonitoringRule platform=Windows] or [ActivityMonitoringRule platform=MacOS]
-        if gVersion.is_version_7_0_0_or_newer():
+        if gVersion.is_version_develop():
             result = "[ActivityMonitoringRule"
             if self.platform in ["windows", "macos"]:
                 result += " platform="
@@ -664,6 +668,7 @@ class uberAgentBackend(SingleTextQueryBackend):
 
     options = SingleTextQueryBackend.options + (
         ("exclusion", "", "List of separated GUIDs to execlude rule generation for.", None),
+        ("version", "", "Specify uberAgent version to generate rules for.", None)
     )
 
     rules = []
