@@ -19,16 +19,22 @@ class Versioning:
         self._outputVersion = version
 
     def is_version_6_1_0_or_newer(self):
-        return self.is_version_develop() or self._version() >= self._version_tuple("6.1.0")
+        return self.is_version_main_or_develop() or self._version() >= self._version_tuple("6.1.0")
 
     def is_version_6_2_0_or_newer(self):
-        return self.is_version_develop() or self._version() >= self._version_tuple("6.2.0")
+        return self.is_version_main_or_develop() or self._version() >= self._version_tuple("6.2.0")
 
     def is_version_7_0_0_or_newer(self):
-        return self.is_version_develop() or self._version() >= self._version_tuple("7.0.0")
+        return self.is_version_main_or_develop() or self._version() >= self._version_tuple("7.0.0")
+
+    def is_version_main_or_develop(self):
+        return self.is_version_main() or self.is_version_develop()
 
     def is_version_develop(self):
         return self._outputVersion == "develop"
+
+    def is_version_main(self):
+        return self._outputVersion == "main"
 
     def is_sigma_platform_supported(self, platform):
         platform_per_version = {
