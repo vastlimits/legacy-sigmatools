@@ -117,52 +117,79 @@ class ActivityMonitoringRule:
         self.sigma_level = ""
         self.annotation = ""
         self.generic_properties = []
-        self.product = ""
+        self.platform = ""
 
-    def set_id(self, id):
-        """Sets the RuleId property."""
-        self.id = id
-
+    # Query =
+    # Available since uberAgent 6.0+
     def set_query(self, query):
         """Sets the generated query property."""
         self.query = query
 
+    # RuleName =
+    # Available since uberAgent 6.0+
     def set_name(self, name):
         """Sets the RuleName."""
         self.name = name
 
+    # Tag =
+    # Available since uberAgent 6.0+
     def set_tag(self, tag):
         """Sets the Tag property."""
         self.tag = tag
 
+    # EventType =
+    # Available since uberAgent 6.0+
     def set_event_type(self, event_type):
         """Sets the EventType property."""
         self.event_type = event_type
 
+    # RiskScore =
+    # Available since uberAgent 6.0+
     def set_risk_score(self, risk_score):
         """Sets the RiskScore property."""
         self.risk_score = risk_score
 
-    def set_sigma_level(self, level):
-        """Sets the Sigma rule level."""
-        self.sigma_level = level
+    # RuleId =
+    # Available since uberAgent 7.0+
+    def set_id(self, ruleId):
+        """Sets the RuleId property."""
+        self.id = ruleId
 
-    def set_description(self, description):
-        """Set the Description property."""
-        self.description = description
-
+    # Annotation =
+    # Available since uberAgent 7.0+
     def set_annotation(self, annotation):
         """Set the Annotation property."""
         self.annotation = annotation
 
+    # GenericProperty1 =
+    # ..
+    # GenericPropertyN =
+    # Available since uberAgent 6.1+
     def set_generic_properties(self, fields):
         """Set the generic properties. """
         self.generic_properties = fields
 
-    def set_product(self, product):
-        """Set the product property. """
-        self.product = product
+    # Not used as configuration setting, but to determine in which file the rule is being saved.
+    # Available since uberAgent 6.0+
+    def set_sigma_level(self, level):
+        """Sets the Sigma rule level."""
+        self.sigma_level = level
 
+    # Not used as configuration setting, but to comment the rule.
+    # Available since uberAgent 6.0+
+    def set_description(self, description):
+        """Set the Description property."""
+        self.description = description
+
+    # Used to determine the platform where a rule is being evaluated on.
+    # Adds the platform = X configuration to a [ActivityMonitoringRule] stanza.
+    #
+    # Available since uberAgent 7.0+
+    def set_platform(self, product):
+        """Set the platform property. """
+        self.platform = product
+
+    # Utility to make/modify tag names.
     def _prefixed_tag(self):
         prefixes = {
             "Process.Start": "proc-start"
@@ -176,11 +203,11 @@ class ActivityMonitoringRule:
     def __str__(self):
         """Builds and returns the [ActivityMonitoringRule] configuration block."""
         result = "[ActivityMonitoringRule"
-        if not self.product == "common":
+        if not self.platform == "common":
             result += " platform="
-            if self.product == "windows":
+            if self.platform == "windows":
                 result += "Windows"
-            elif self.product == "macos":
+            elif self.platform == "macos":
                 result += "MacOS"
         result += "]\n"
 
@@ -507,7 +534,7 @@ class uberAgentBackend(SingleTextQueryBackend):
                 rule.set_description(description)
                 rule.set_annotation(annotation)
                 rule.set_generic_properties(self.recent_fields)
-                rule.set_product(product)
+                rule.set_platform(product)
                 self.rules.append(rule)
                 gPlatformLevelCombinations[level + "-" + product] = 0
                 print("Generated rule <{}>.. [level: {}]".format(rule.name, level))
@@ -551,7 +578,7 @@ class uberAgentBackend(SingleTextQueryBackend):
                 print("Please remove them manually or try again.")
 
         for rule in self.rules:
-            file_name = file_name_front + rule.sigma_level + "-" + rule.product + file_extension
+            file_name = file_name_front + rule.sigma_level + "-" + rule.platform + file_extension
             if not os.path.exists(file_name):
                 with open(file_name, "w", encoding='utf8') as file:
                     write_file_header(file, rule.sigma_level)
@@ -564,7 +591,7 @@ class uberAgentBackend(SingleTextQueryBackend):
                 except MalformedRuleException:
                     continue
                 file.close()
-                key = rule.product + " " + rule.sigma_level
+                key = rule.platform + " " + rule.sigma_level
                 result_dict[key] += 1
 
         print("Generated {} activity monitoring rules..".format(len(self.rules)))
