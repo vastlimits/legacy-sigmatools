@@ -13,44 +13,55 @@ from ..parser.modifiers.base import SigmaTypeModifier
 gUnsupportedCategories = {}
 gPlatformLevelCombinations = {}
 
+UA_VERSION_6_0 = "6.0.0"
+UA_VERSION_6_1 = "6.1.0"
+UA_VERSION_6_2 = "6.2.0"
+UA_VERSION_7_0 = "7.0.0"
+
+# Next upcoming version (version number not yet assigned)
+UA_VERSION_DEVELOP = "develop"
+UA_VERSION_CURRENT_RELEASE = UA_VERSION_7_0
+
 
 class Versioning:
     def __init__(self, version):
+
+        # It is possible to initialize version with Major.Minor, e.g: 6.0, 7.0
+        # However, internally we need build number. Simply append it.
+        if version.count('.') == 1:
+            version += ".0"
+        elif version == "main":
+            version = UA_VERSION_CURRENT_RELEASE
+            
         self._outputVersion = version
 
-    def is_version_6_1_0_or_newer(self):
-        return self.is_version_main_or_develop() or self._version() >= self._version_tuple("6.1.0")
+    def is_version_6_1_or_newer(self):
+        return self.is_version_develop() or self._version() >= self._version_tuple(UA_VERSION_6_1)
 
-    def is_version_6_2_0_or_newer(self):
-        return self.is_version_main_or_develop() or self._version() >= self._version_tuple("6.2.0")
+    def is_version_6_2_or_newer(self):
+        return self.is_version_develop() or self._version() >= self._version_tuple(UA_VERSION_6_2)
 
-    def is_version_7_0_0_or_newer(self):
-        return self.is_version_main_or_develop() or self._version() >= self._version_tuple("7.0.0")
-
-    def is_version_main_or_develop(self):
-        return self.is_version_main() or self.is_version_develop()
+    def is_version_7_0_or_newer(self):
+        return self.is_version_develop() or self._version() >= self._version_tuple(UA_VERSION_7_0)
 
     def is_version_develop(self):
-        return self._outputVersion == "develop"
-
-    def is_version_main(self):
-        return self._outputVersion == "main"
+        return self._outputVersion == UA_VERSION_DEVELOP
 
     def is_sigma_platform_supported(self, platform):
         platform_per_version = {
-            "6.0.0": ["common", "windows"],
-            "develop": ["common", "windows", "macos"]
+            UA_VERSION_6_0: ["common", "windows"],
+            UA_VERSION_DEVELOP: ["common", "windows", "macos"]
         }
 
-        if platform in platform_per_version["6.0.0"]:
+        if platform in platform_per_version[UA_VERSION_6_0]:
             return True
 
-        if self.is_version_develop() and platform in platform_per_version["develop"]:
+        if self.is_version_develop() and platform in platform_per_version[UA_VERSION_DEVELOP]:
             return True
 
     def is_field_supported(self, field):
         fields_per_version = {
-            "6.0.0": [
+            UA_VERSION_6_0: [
                 "Process.Name",
                 "Parent.Name",
                 "Process.User",
@@ -92,7 +103,7 @@ class Versioning:
                 "Image.Path",
                 "Image.Hash"
             ],
-            "6.1.0": [
+            UA_VERSION_6_1: [
                 "Process.Hash.MD5",
                 "Process.Hash.SHA1",
                 "Process.Hash.SHA256",
@@ -115,7 +126,7 @@ class Versioning:
                 "Image.Signature",
                 "Image.SignatureStatus"
             ],
-            "6.2.0": [
+            UA_VERSION_6_2: [
                 "Net.Target.IpIsV6",
                 "Net.Target.PortName",
                 "Net.Source.Ip",
@@ -132,25 +143,25 @@ class Versioning:
                 "Thread.StartFunctionName",
                 "Reg.Key.Target"
             ],
-            "7.0.0": [
+            UA_VERSION_7_0: [
                 "Image.IsSignedByOSVendor"
             ]
         }
 
-        if self.is_version_6_1_0_or_newer():
+        if self.is_version_6_1_or_newer():
             # The fields here were removed in version 6.1.0 and replaced with more specific fields.
             # Remove them if we are generating for a newer version, so we don't generate invalid rules.
-            fields_per_version["6.0.0"].remove("Process.Hash")
-            fields_per_version["6.0.0"].remove("Parent.Hash")
-            fields_per_version["6.0.0"].remove("Image.Hash")
+            fields_per_version[UA_VERSION_6_0].remove("Process.Hash")
+            fields_per_version[UA_VERSION_6_0].remove("Parent.Hash")
+            fields_per_version[UA_VERSION_6_0].remove("Image.Hash")
 
-        if field in fields_per_version["6.0.0"]:
+        if field in fields_per_version[UA_VERSION_6_0]:
             return True
 
-        if self.is_version_6_1_0_or_newer() and field in fields_per_version["6.1.0"]:
+        if self.is_version_6_1_or_newer() and field in fields_per_version[UA_VERSION_6_1]:
             return True
 
-        if self.is_version_6_2_0_or_newer() and field in fields_per_version["6.2.0"]:
+        if self.is_version_6_2_or_newer() and field in fields_per_version[UA_VERSION_6_2]:
             return True
 
         return False
@@ -159,7 +170,7 @@ class Versioning:
         """Returns whether uberAgent ESA knows the given sigma category or not."""
         event_type = self.convert_category(category)
         event_types_per_version = {
-            "6.0.0": [
+            UA_VERSION_6_0: [
                 "Process.Start",
                 "Process.Stop",
                 "Image.Load",
@@ -183,27 +194,27 @@ class Versioning:
                 "Reg.Key.Replace",
                 "Reg.Any"
             ],
-            "6.1.0": [
+            UA_VERSION_6_1: [
                 "DNS.Event"
             ],
-            "6.2.0": [
+            UA_VERSION_6_2: [
                 "Net.Any",
                 "Process.CreateRemoteThread",
                 "Process.TamperingEvent"
             ],
-            "develop": []
+            UA_VERSION_DEVELOP: []
         }
 
-        if event_type in event_types_per_version["6.0.0"]:
+        if event_type in event_types_per_version[UA_VERSION_6_0]:
             return True
 
-        if self.is_version_6_1_0_or_newer() and event_type in event_types_per_version["6.1.0"]:
+        if self.is_version_6_1_or_newer() and event_type in event_types_per_version[UA_VERSION_6_1]:
             return True
 
-        if self.is_version_6_2_0_or_newer() and event_type in event_types_per_version["6.2.0"]:
+        if self.is_version_6_2_or_newer() and event_type in event_types_per_version[UA_VERSION_6_2]:
             return True
 
-        if self.is_version_develop() and event_type in event_types_per_version["develop"]:
+        if self.is_version_develop() and event_type in event_types_per_version[UA_VERSION_DEVELOP]:
             return True
 
     def _version(self):
@@ -253,7 +264,7 @@ class Versioning:
             return "uberAgent-ESA-am-sigma-" + rule.sigma_level + "-" + rule.platform + ".conf"
 
         # File name since 6.2
-        if self.is_version_6_2_0_or_newer():
+        if self.is_version_6_2_or_newer():
             return "uberAgent-ESA-am-sigma-" + rule.sigma_level + ".conf"
 
         # File name since initial version 6.0
@@ -455,7 +466,7 @@ class ActivityMonitoringRule:
         if len(self.query) == 0:
             raise MalformedRuleException()
 
-        if gVersion.is_version_7_0_0_or_newer():
+        if gVersion.is_version_7_0_or_newer():
             result += "RuleId = {}\n".format(self.id)
 
         result += "RuleName = {}\n".format(self.name)
@@ -467,7 +478,7 @@ class ActivityMonitoringRule:
         if self.risk_score > 0:
             result += "RiskScore = {}\n".format(self.risk_score)
 
-        if gVersion.is_version_7_0_0_or_newer():
+        if gVersion.is_version_7_0_or_newer():
             if len(self.annotation) > 0:
                 result += "Annotation = {}\n".format(self.annotation)
 
@@ -477,7 +488,7 @@ class ActivityMonitoringRule:
             result += "Hive = HKLM,HKU\n"
 
         # uberAgent supports generic properties to be added to an activity rule since version 6.1
-        if gVersion.is_version_6_1_0_or_newer():
+        if gVersion.is_version_6_1_or_newer():
             counter = 1
             for prop in self.generic_properties:
 
@@ -741,10 +752,10 @@ class uberAgentBackend(SingleTextQueryBackend):
         # The version is specified in backend configuration.
         # Example
         #
-        # version: "develop" (upcoming version for development purposes)
-        # version: "6.0.0"
-        # version: "6.1.0"
-        # version: "7.0.0"
+        # version: UA_VERSION_DEVELOP (upcoming version for development purposes)
+        # version: UA_VERSION_6_0
+        # version: UA_VERSION_6_1
+        # version: UA_VERSION_7_0
         #
         global gVersion
         if gVersion is None:
