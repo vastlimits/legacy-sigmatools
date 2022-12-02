@@ -141,10 +141,15 @@ class Versioning:
                 "Thread.StartAddress",
                 "Thread.StartModule",
                 "Thread.StartFunctionName",
-                "Reg.Key.Target"
+                "Reg.Key.Target",
+                "Process.Hashes",
+                "Parent.Hashes",
+                "Image.Hashes"
             ],
             UA_VERSION_7_0: [
-                "Image.IsSignedByOSVendor"
+                "Image.IsSignedByOSVendor",
+                "Process.IsSignedByOSVendor",
+                "Parent.IsSignedByOSVendor"
             ]
         }
 
@@ -621,13 +626,15 @@ class uberAgentBackend(SingleTextQueryBackend):
             "sha1": "Process.Hash.SHA1",
             "imphash": "Process.Hash.IMP",
             "childimage": "Process.Path",
-            "signed": "Process.IsSigned"
+            "signed": "Process.IsSigned",
+            "hashes": "Process.Hashes"
         },
         "image_load": {
             "sha1": "Image.Hash.SHA1",
             "imphash": "Image.Hash.IMP",
             "childimage": "Image.Path",
-            "signed": "Image.IsSigned"
+            "signed": "Image.IsSigned",
+            "hashes": "Image.Hashes"
         },
         "dns": {
             "query": "Dns.QueryRequest",
@@ -646,7 +653,9 @@ class uberAgentBackend(SingleTextQueryBackend):
         "firewall": {
             "destination.port": "Net.Target.Port",
             "dst_ip": "Net.Target.Ip",
-            "src_ip": "Net.Source.Ip"
+            "src_ip": "Net.Source.Ip",
+            "dst_port": "Net.Target.Port",
+            "src_port": "Net.Source.Port"
         },
         "create_remote_thread": {
             "targetimage": "Process.Path",
