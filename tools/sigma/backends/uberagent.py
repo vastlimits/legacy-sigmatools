@@ -17,6 +17,7 @@ UA_VERSION_6_0 = "6.0.0"
 UA_VERSION_6_1 = "6.1.0"
 UA_VERSION_6_2 = "6.2.0"
 UA_VERSION_7_0 = "7.0.0"
+UA_VERSION_7_1 = "7.1.0"
 
 # Next upcoming version (version number not yet assigned)
 UA_VERSION_DEVELOP = "develop"
@@ -43,6 +44,9 @@ class Versioning:
 
     def is_version_7_0_or_newer(self):
         return self.is_version_develop() or self._version() >= self._version_tuple(UA_VERSION_7_0)
+        
+    def is_version_7_1_or_newer(self):
+        return self.is_version_develop() or self._version() >= self._version_tuple(UA_VERSION_7_1)
 
     def is_version_develop(self):
         return self._outputVersion == UA_VERSION_DEVELOP
@@ -56,7 +60,7 @@ class Versioning:
         if platform in platform_per_version[UA_VERSION_6_0]:
             return True
 
-        if self.is_version_develop() and platform in platform_per_version[UA_VERSION_DEVELOP]:
+        if (self.is_version_develop() or self.is_version_7_1_or_newer) and platform in platform_per_version[UA_VERSION_DEVELOP]:
             return True
 
     def is_field_supported(self, field):
@@ -265,7 +269,7 @@ class Versioning:
     def get_filename(self, rule):
 
         # File name since develop (upcoming version)
-        if self.is_version_develop():
+        if self.is_version_develop() or self.is_version_7_1_or_newer():
             return "uberAgent-ESA-am-sigma-" + rule.sigma_level + "-" + rule.platform + ".conf"
 
         # File name since 6.2
@@ -441,9 +445,9 @@ class ActivityMonitoringRule:
         # The default is available since uberAgent 6.
         result = "[ActivityMonitoringRule]\n"
 
-        # Starting with uberAgent 7 and newer we slightly change the configuration stanza.
+        # Starting with uberAgent 7.1 and newer we slightly change the configuration stanza.
         # Example. [ActivityMonitoringRule platform=Windows] or [ActivityMonitoringRule platform=MacOS]
-        if gVersion.is_version_develop():
+        if gVersion.is_version_7_1_or_newer():
             result = "[ActivityMonitoringRule"
             if self.platform in ["windows", "macos"]:
                 result += " platform="
@@ -569,6 +573,20 @@ def write_file_header(f, level):
     f.write("# The rules in this file are marked with sigma-level: {}\n".format(level))
     f.write("#\n\n")
 
+def create_configuration_file(file_name, sigma_level):
+    # First remove old files if present
+    if os.path.exists(file_name):
+        try:
+            os.remove(file_name)
+        except OSError as error:
+            print("There was an error deleting previously created files:" + error)
+            print("Please remove them manually or try again.")
+            exit(1)
+    
+    if not os.path.exists(file_name):
+        with open(file_name, "w", encoding='utf8') as file:
+            write_file_header(file, sigma_level)
+            file.close()
 
 class uberAgentBackend(SingleTextQueryBackend):
     """Converts Sigma rule into uberAgent ESA's process tagging rules."""
@@ -820,7 +838,25 @@ class uberAgentBackend(SingleTextQueryBackend):
             return ""
         except MalformedRuleException:
             return ""
-
+            
+    def prepare_configuration_files(self):
+        sigma_levels = {"critical", "high", "medium", "low", "informational"}
+        platforms = {"common", "macos", "windows"}    
+        
+        file_prefix = "uberAgent-ESA-am-sigma-proc-creation-"
+        if gVersion.is_version_6_2_or_newer():
+            file_prefix = "uberAgent-ESA-am-sigma-"
+        
+        for sigma_level in sigma_levels:
+            if gVersion.is_version_7_1_or_newer():
+                for platform in platforms:        
+                    file_name = file_prefix + sigma_level + "-" + platform + ".conf"
+                    create_configuration_file(file_name, sigma_level)        
+            else:
+                file_name = file_prefix + sigma_level + ".conf"
+                create_configuration_file(file_name, sigma_level)
+            
+            
     def serialize_rules(self):
         result_dict = {
             "common critical": 0,
@@ -840,27 +876,10 @@ class uberAgentBackend(SingleTextQueryBackend):
             "macos informational": 0
         }
 
-        # Delete existing configuration files (if any)
-        for rule in self.rules:
-            file_name = gVersion.get_filename(rule)
-            if os.path.exists(file_name):
-                try:
-                    os.remove(file_name)
-                except OSError as error:
-                    print("There was an error deleting previously created files:" + error)
-                    print("Please remove them manually or try again.")
-                    exit(1)
+        self.prepare_configuration_files()
 
         for rule in self.rules:
             file_name = gVersion.get_filename(rule)
-
-            # Initially write the file and its header
-            if not os.path.exists(file_name):
-                with open(file_name, "w", encoding='utf8') as file:
-                    write_file_header(file, rule.sigma_level)
-                    file.close()
-
-            # Append the rule to the given file
             with open(file_name, "a", encoding='utf8') as file:
                 try:
                     serialized_rule = str(rule)
