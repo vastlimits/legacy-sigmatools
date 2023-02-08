@@ -355,6 +355,7 @@ class ActivityMonitoringRule:
         self.annotation = ""
         self.generic_properties = []
         self.platform = ""
+        self.author = ""
 
     # Query =
     # Available since uberAgent 6.0+
@@ -418,6 +419,12 @@ class ActivityMonitoringRule:
         """Set the Description property."""
         self.description = description
 
+    # Not used as configuration setting, but to comment the rule.
+    # Backported to all uberAgent versions.
+    def set_author(self, author):
+        """Set the Author property."""
+        self.author = author
+
     # Used to determine the platform where a rule is being evaluated on.
     # Adds the platform = X configuration to a [ActivityMonitoringRule] stanza.
     #
@@ -461,6 +468,9 @@ class ActivityMonitoringRule:
         if len(self.description) > 0:
             for description_line in self.description.splitlines():
                 result += "# {}\n".format(description_line)
+
+        if len(self.author) > 0:
+            result += "# Author: {}\n".format(self.author)
 
         # Make sure all required properties have at least a value that is somehow usable.
         if self.event_type is None:
@@ -542,6 +552,10 @@ def get_parser_properties(sigmaparser):
     condition = sigmaparser.parsedyaml['detection']['condition']
     logsource = sigmaparser.parsedyaml['logsource']
     rule_id = sigmaparser.parsedyaml['id']
+    author = ''
+
+    if 'author' in sigmaparser.parsedyaml:
+        author = sigmaparser.parsedyaml['author']
 
     category = ''
     if 'category' in logsource:
@@ -559,7 +573,7 @@ def get_parser_properties(sigmaparser):
     if 'tags' in sigmaparser.parsedyaml:
         annotation = get_annotation(sigmaparser.parsedyaml['tags'])
 
-    return product, category, service, title, level, condition, description, annotation, rule_id
+    return product, category, service, title, level, condition, description, annotation, rule_id, author
 
 
 def write_file_header(f, level):
@@ -789,7 +803,7 @@ class uberAgentBackend(SingleTextQueryBackend):
             gVersion = Versioning(self.backend_options["version"])
 
         """Method is called for each sigma rule and receives the parsed rule (SigmaParser)"""
-        platform, category, service, title, level, condition, description, annotation, rule_id = get_parser_properties(
+        platform, category, service, title, level, condition, description, annotation, rule_id, author = get_parser_properties(
             sigmaparser)
 
         # Exclude all entries contained in backend configuration exclusion list.
@@ -824,6 +838,7 @@ class uberAgentBackend(SingleTextQueryBackend):
                 rule.set_risk_score(convert_sigma_level_to_uberagent_risk_score(level))
                 rule.set_sigma_level(level)
                 rule.set_description(description)
+                rule.set_author(author)
                 rule.set_annotation(annotation)
                 rule.set_generic_properties(self.recent_fields)
                 rule.set_platform(platform)
