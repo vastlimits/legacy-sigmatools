@@ -943,6 +943,8 @@ class uberAgentBackend(SingleTextQueryBackend):
         raise IgnoreTypedModifierException()
 
     def generateMapItemListNode(self, key, value):
+        if type(value) == NodeSubexpression:
+            value = value.items
         return "(" + (" or ".join([self.mapWildcard % (key, self.generateValueNode(item)) for item in value])) + ")"
 
     def generateMapItemNode(self, node):
@@ -956,7 +958,7 @@ class uberAgentBackend(SingleTextQueryBackend):
 
         if "," in self.generateNode(value) and not has_wildcard:
             return self.mapListValueExpression % (transformed_field_name, self.generateNode(value))
-        elif type(value) == list:
+        elif type(value) in (list, NodeSubexpression):
             return self.generateMapItemListNode(transformed_field_name, value)
         elif self.mapListsSpecialHandling is False and type(value) in (
                 str, int, list) or self.mapListsSpecialHandling is True and type(value) in (str, int):
