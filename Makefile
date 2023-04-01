@@ -1,4 +1,4 @@
-.PHONY: test test-rules test-sigmac test-sigma2attack
+.PHONY: test test-sigmac
 TMPOUT = $(shell tempfile||mktemp)
 COVSCOPE = tools/sigma/*.py,tools/sigma/backends/*.py,tools/sigmac,tools/merge_sigma,tools/sigma2attack
 export COVERAGE = coverage
@@ -8,19 +8,27 @@ clearcov:
 	rm -f .coverage
 
 finish:
-	$(COVERAGE) report --fail-under=80
 	rm -f $(TMPOUT)
-
-test-rules:
-	yamllint rules
-	tests/test_rules.py
-	tools/sigma_uuid -Ver rules/
 
 test-sigmac:
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -h
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -l
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac --backend-help es-qs
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/not_existing.yml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_yaml.badyml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-no_identifiers.yml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-no_condition.yml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-invalid_identifier_reference.yml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-invalid_aggregation.yml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-wrong_identifier_definition.yml > /dev/null
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml rules/windows/builtin/security/win_susp_failed_logons_single_source.yml
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml -o /not_possible rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c not_existing rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tests/invalid_yaml.badyml rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
+	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tests/invalid_config.yml rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
+
+test-sigmac-rules:		# Test everything against a rules reporitory located in rules/ (not available anymore after repository split)
 	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -rvd -t es-qs rules/ > /dev/null
 	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -rvdI -t es-qs rules/ > /dev/null
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -rvdI -t es-qs --shoot-yourself-in-the-foot rules/ > /dev/null
@@ -109,18 +117,6 @@ test-sigmac:
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml -o $(TMPOUT) - < tests/collection_repeat.yml > /dev/null
 	$(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -rvdI -t dnif -c tools/config/dnif.yml rules/ > /dev/null
 	! $(COVERAGE) run -a --include=$(COVSCOPE)  tools/sigmac -t xpack-watcher -c tools/config/winlogbeat.yml -O output=foobar -O es=es -O foobar rules/windows/builtin/security/win_susp_failed_logons_single_source.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/not_existing.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_yaml.badyml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-no_identifiers.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-no_condition.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-invalid_identifier_reference.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-invalid_aggregation.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml tests/invalid_sigma-wrong_identifier_definition.yml > /dev/null
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml rules/windows/builtin/security/win_susp_failed_logons_single_source.yml
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tools/config/winlogbeat.yml -o /not_possible rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c not_existing rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tests/invalid_yaml.badyml rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
-	! $(COVERAGE) run -a --include=$(COVSCOPE) tools/sigmac -t es-qs -c tests/invalid_config.yml rules/windows/deprecated/sysmon_mimikatz_detection_lsass.yml
 
 test-merge:
 	tests/test-merge.sh
