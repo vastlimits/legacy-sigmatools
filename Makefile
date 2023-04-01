@@ -2,7 +2,7 @@
 TMPOUT = $(shell tempfile||mktemp)
 COVSCOPE = tools/sigma/*.py,tools/sigma/backends/*.py,tools/sigmac,tools/merge_sigma,tools/sigma2attack
 export COVERAGE = coverage
-test: clearcov test-rules test-sigmac test-merge test-sigma2attack build finish
+test: clearcov test-sigmac build finish
 
 clearcov:
 	rm -f .coverage

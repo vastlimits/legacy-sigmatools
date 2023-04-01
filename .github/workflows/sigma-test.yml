@@ -15,16 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3.3.0
-    - name: Set up Python 3.11
+    - name: Set up Python
       uses: actions/setup-python@v4.5.0
       with:
-        python-version: 3.11
+        python-version: "3.10"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pipenv==2021.5.29
-        pipenv lock
+        pip install pipenv
         pipenv install --dev --deploy
-    - name: Test Sigma Tools and Rules
+    - name: Test Sigma Tools
       run: |
         pipenv run make test
