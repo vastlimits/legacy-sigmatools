@@ -621,6 +621,7 @@ class uberAgentBackend(SingleTextQueryBackend):
     listExpression = "[%s]"
     listSeparator = ", "
     valueExpression = "\"%s\""
+    valueBooleanExpression = "%s"
     nullExpression = "%s == ''"
     notNullExpression = "%s != ''"
     mapExpression = "%s == %s"
@@ -738,6 +739,23 @@ class uberAgentBackend(SingleTextQueryBackend):
         "sourceimage",
         "eventtype",
         "details"
+    ]
+
+    booleanFieldList = [
+        "Process.IsElevated",
+        "Parent.IsElevated",
+        "Process.IsProtected",
+        "Parent.IsProtected",
+        "Process.DirectoryUserWriteable",
+        "Process.IsSigned",
+        "Process.IsSignedByOSVendor",
+        "Parent.IsSigned",
+        "Parent.IsSignedByOSVendor",
+        "Image.IsSigned",
+        "Image.IsSignedByOSVendor",
+        "Net.Target.IpIsV6",
+        "Net.Source.IpIsV6",
+        "File.IsExecutable"
     ]
 
     options = SingleTextQueryBackend.options + (
@@ -936,6 +954,11 @@ class uberAgentBackend(SingleTextQueryBackend):
         for category in gUnsupportedCategories:
             print("Category %s has %d unsupported rules." % (category, gUnsupportedCategories[category]))
 
+    def generateNode(self, node):
+        if type(node) == bool:
+            return self.valueBooleanExpression % str(node).lower()
+        return super(uberAgentBackend, self).generateNode(node)
+
     def generateTypedValueNode(self, node):
         raise IgnoreTypedModifierException()
 
@@ -956,12 +979,18 @@ class uberAgentBackend(SingleTextQueryBackend):
 
         has_wildcard = re.search(r"((\\(\*|\?|\\))|\*|\?|_|%)", self.generateNode(value))
 
+        if transformed_field_name in self.booleanFieldList and type(value) == str:
+            if value.lower() in ['true', '1']:
+                value = True
+            else:
+                value = False
+
         if "," in self.generateNode(value) and not has_wildcard:
             return self.mapListValueExpression % (transformed_field_name, self.generateNode(value))
         elif type(value) in (list, NodeSubexpression):
             return self.generateMapItemListNode(transformed_field_name, value)
         elif self.mapListsSpecialHandling is False and type(value) in (
-                str, int, list) or self.mapListsSpecialHandling is True and type(value) in (str, int):
+                str, int, bool, list) or self.mapListsSpecialHandling is True and type(value) in (str, int, bool):
             if has_wildcard:
                 return self.mapWildcard % (transformed_field_name, self.generateNode(value))
             else:
